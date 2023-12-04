@@ -1,11 +1,12 @@
 import numpy as np
 import pygame
 import argparse
+import imageio
 from magenta.music import midi_io
 
 from MIDIEnvironment import MIDIEnvironment
 from MIDIAgent import MIDIAgent
-from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
+from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH, PLOT_FREQUENCY
 from MIDIUtility import visualizePianoRoll, initializeModel, generateMidiPerformance, playMidiFile, convertMidiToStates, convertStatesToMidi, generateScaleSequence
 
 
@@ -44,7 +45,7 @@ else:
 
 if not args.dont_play:
     playMidiFile(outfile)
-visualizePianoRoll(outfile)
+visualizePianoRoll(outfile, 'Performance (baseline)')
 
 if not args.scale:
     sequence_states = convertMidiToStates(sequence)
@@ -80,8 +81,10 @@ for i in range(NUM_EPISODES):
     if (i + 1) % 1000 == 0:
         print("On Episode #" + str(i + 1))
 
-    if (i + 1) % 100000 == 0 or i == 100:
+    if (i + 1) % 10000 == 0:
         agent.saveTrackData()
+
+    if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
         agent.plotRewards('Performance')
         agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
         agent.plotPolicy(time_step=40, episode=(i + 1))
@@ -98,5 +101,39 @@ for i in range(NUM_EPISODES):
 
         if not args.dont_play:
             playMidiFile(final_outfile)
-        visualizePianoRoll(final_outfile, i)
+        visualizePianoRoll(final_outfile, 'Performance Episode #' + str(i + 1))
 
+
+# Generate images and videos showing model progress
+ah_filenames = [] # Action Histograms
+fop_filenames = [] # Final Output Plots
+pp_filenames = [] # Policy Plots
+qvh_filenames = [] # Q-value Heatmaps
+rb_filenames = [] # Reward Breakdown
+
+for i in range(NUM_EPISODES // PLOT_FREQUENCY):
+    if i == 0:
+        ah_filenames.append('Action_Histogram_episode100.png')
+        fop_filenames.append('final_output_100_plot.png')
+        pp_filenames.append('Policy_Plot_100_40.png')
+        qvh_filenames.append('QValue_Heatmap_episode_100_0_40.png')
+        rb_filenames.append('Reward_Breakdown_episode100.png')
+    else:
+        ah_filenames.append('Action_Histogram_episode' + str(i * PLOT_FREQUENCY) + '.png')
+        fop_filenames.append('final_output_' + str(i * PLOT_FREQUENCY) + '_plot.png')
+        pp_filenames.append('Policy_Plot_' + str(i * PLOT_FREQUENCY) + '_40.png')
+        qvh_filenames.append('QValue_Heatmap_episode_' + str(i * PLOT_FREQUENCY) + '_0_40.png')
+        rb_filenames.append('Reward_Breakdown_episode' + str(i * PLOT_FREQUENCY) + '.png')
+
+ah_images = [imageio.imread(filename) for filename in ah_filenames]
+fop_images = [imageio.imread(filename) for filename in fop_filenames]
+pp_images = [imageio.imread(filename) for filename in pp_filenames]
+qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
+rb_images = [imageio.imread(filename) for filename in rb_filenames]
+
+
+imageio.mimsave('ah_movie.gif', ah_images, duration = 0.25)
+imageio.mimsave('fop_movie.gif', fop_images, duration = 0.25)
+imageio.mimsave('pp_movie.gif', pp_images, duration = 0.25)
+imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.25)
+imageio.mimsave('rb_movie.gif', rb_images, duration = 0.25)

@@ -13,7 +13,7 @@ import pygame
 from MIDIHyperparameters import CLIP_LENGTH
 
 
-def visualizePianoRoll(outfile):
+def visualizePianoRoll(outfile, title_label):
     midi_data = pretty_midi.PrettyMIDI(outfile)
     plt.figure(figsize=(12, 6))
 
@@ -43,7 +43,7 @@ def visualizePianoRoll(outfile):
     plt.xlim(0, midi_data.get_end_time())
     plt.xlabel('Time (s)')
     plt.ylabel('MIDI Note Number')
-    plt.title('Piano Roll')
+    plt.title('Piano Roll: ' + str(title_label))
 
     # Display the piano roll
     plt.savefig(outfile[:-4] + '_plot.png')

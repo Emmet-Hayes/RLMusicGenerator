@@ -1,3 +1,5 @@
 *.npy
 __pycache__
 *.mag
+*.png
+*.mid

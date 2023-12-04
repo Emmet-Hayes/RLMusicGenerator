@@ -46,18 +46,20 @@ class MIDIEnvironment:
 
         # reward handsomely for playing the right note
         if next_state[0] in self.sequence_states[0]:
-            reward += 21
+            reward += 51
             self.correct_note_reward += reward
-
-        # reward slightly for playing the right timing of a note in the sequence
-        if next_state[1] in self.sequence_states[1]:
-            reward += 6
-            self.correct_timing_reward += reward
 
         # reward notes that may be in the wrong octave, but are in the right key (if there is one)
         if (next_state[0] % 12) in self.key_sequence:
-            reward += 6
+            reward += 2
             self.correct_key_reward += reward
+
+        # reward well for playing the right timing of a note in the sequence
+        if next_state[1] in self.sequence_states[1]:
+            reward += 21
+            self.correct_timing_reward += reward
+
+
 
         self.episodes['Reward'].append(reward)
         self.episodes['State'].append(next_state)

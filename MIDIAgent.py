@@ -174,14 +174,14 @@ class MIDIAgent:
         smoothed_rewards = np.convolve(self.env.rewards, np.ones(window_size) / window_size, mode='valid')
         fig, ax = plt.subplots(figsize=(30, 15))
         x_smoothed = np.arange(window_size//2, len(smoothed_rewards) + window_size//2)
-        plt.plot(np.arange(len(self.env.rewards)), self.env.rewards, label='Rewards per Episode', linewidth=0.5, color='#8F719C')
-        plt.plot(x_smoothed, smoothed_rewards, label='Smoothed Rewards', color='orange')
+        plt.plot(np.arange(len(self.env.rewards)) * 10, self.env.rewards, label='Rewards per Episode', linewidth=0.5, color='#8F719C')
+        plt.plot(x_smoothed * 10, smoothed_rewards, label='Smoothed Rewards', color='orange')
         plt.xlabel('Episode number', size=24)
         plt.ylabel('Reward', size=24)
         plt.title(plot_name, size=36)
         plt.xticks(size=20)
         plt.yticks(size=20)
-        plt.savefig('RewardLearningCurve' + str(len(self.env.rewards)) + '.png')
+        plt.savefig('RewardLearningCurve' + str(len(self.env.rewards) * 10) + '.png')
         plt.close()
 
 
@@ -189,32 +189,41 @@ class MIDIAgent:
         q_values_subset = self.env.Qvalues[:, duration, time_step, :]
 
         plt.figure(figsize=(12, 6))
-        sns.heatmap(q_values_subset, cmap='viridis')
+        ax = sns.heatmap(q_values_subset, cmap='viridis')
+        ax.invert_yaxis()
         plt.xlabel('Actions')
         plt.ylabel('Pitch')
-        plt.title('Q-Value Heatmap for duration {} at Time Step {}'.format(duration, time_step))
+        plt.xticks(size=10)
+        plt.yticks(size=10)
+        plt.title('Q-Value Heatmap at episode {} for duration {} at Time Step {}'.format(episode, duration, time_step))
         plt.savefig('QValue_Heatmap_episode_' + str(episode) + '_' + str(duration) + '_' + str(time_step) + '.png')
         plt.close()
 
     def plotPolicy(self, time_step = 0, episode = 0):
         policy_subset = self.env.policy[:, :, time_step]
-        sns.heatmap(policy_subset, cmap='coolwarm')
+        ax = sns.heatmap(policy_subset, cmap='coolwarm')
+        ax.invert_yaxis()
         plt.xlabel('Duration')
         plt.ylabel('Pitch')
-        plt.title('Policy Visualization at Time Step {}'.format(time_step))
+        plt.xticks(size=20)
+        plt.yticks(size=10)
+        plt.title('Policy Visualization at episode {}, Time Step {}'.format(episode, time_step))
         plt.savefig('Policy_Plot_' + str(episode) + '_' + str(time_step) + '.png')
         plt.close()
 
     def plotActionHistogram(self, episode = 0):
         # Assuming self.env.episodes['Action'] contains a list of actions taken in each episode
-        all_actions = [action for episode in self.env.episodes['Action'] for action in episode]
+        all_actions = []
+        for action in self.env.episodes['Action']:
+            all_actions.append(self.mapAction1D(action))
 
         plt.figure(figsize=(12, 6))
         plt.hist(all_actions, bins=range(len(self.action_space)), edgecolor='black')
         plt.xlabel('Actions')
         plt.ylabel('Frequency')
-        plt.title('Action Distribution Across All Episodes')
-        plt.xticks(range(len(self.action_space))) # Adjust this based on your action space
+        plt.xticks(size=20)
+        plt.yticks(size=10)
+        plt.title('Action Distribution of episode ' + str(episode))
         plt.savefig('Action_Histogram_episode' + str(episode) + '.png')
         plt.close()
 
@@ -223,8 +232,10 @@ class MIDIAgent:
         components = ['Correct Note', 'Correct Timing', 'Correct Key']
         values = [self.env.correct_note_reward, self.env.correct_timing_reward, self.env.correct_key_reward]
         plt.bar(components, values, color=['blue', 'green', 'red'])
+        plt.xticks(size=20)
+        plt.yticks(size=10)
         plt.xlabel('Reward Components')
         plt.ylabel('Total Reward')
-        plt.title('Breakdown of Reward Components')
+        plt.title('Breakdown of Reward Components at episode ' + str(episode))
         plt.savefig('Reward_Breakdown_episode' + str(episode) + '.png')
         plt.close()
