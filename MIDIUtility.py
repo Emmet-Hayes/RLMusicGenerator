@@ -138,9 +138,9 @@ def convertStatesToMidi(state_sequence):
 
 
 def getKeyModifier(key='A'):
-    keyMap = { 'A':0, 'Bb':1, 'A#':1, 'B':2, 'C':3, 'Db':4, 'C#':4,
-               'D':5, 'Eb':6, 'D#':6, 'E':7, 'F':8, 'Gb':9, 'F#':9,
-               'G':10, 'Ab':11, 'G#':11 }
+    keyMap = { 'A':8, 'Bb':9, 'A#':9, 'B':10, 'C':11, 'Db':0, 'C#':0,
+               'D':1, 'Eb':2, 'D#':2, 'E':3, 'F':4, 'Gb':5, 'F#':5,
+               'G':6, 'Ab':7, 'G#':7 }
     return keyMap[key]
 
 

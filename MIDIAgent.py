@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from MIDIHyperparameters import PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
 
@@ -57,8 +58,6 @@ class MIDIAgent:
             A_t = self.mapAction1D(self.env.episodes['Action'][t]) # (3, 3) flattened to 9 actions
             SA = S_t + (A_t,)
 
-            # print("SA: " + str(SA))
-
             self.env.Cvalues[SA] += W
             self.env.Qvalues[SA] += (W * (G - self.env.Qvalues[SA])) / self.env.Cvalues[SA]
             self.env.policy[S_t] = np.argmax(self.env.Qvalues[S_t])
@@ -80,8 +79,6 @@ class MIDIAgent:
 
             A_t = self.mapAction1D(action)
             SA = tuple(state) + (A_t,)
-
-            #print(str(SA))
 
             # Q-learning update
             if np.random.rand() < 0.5: # randomly choose which q-value table to update
@@ -166,20 +163,68 @@ class MIDIAgent:
 
         return action
 
-    def plotRewards(self, iterCount, plot_name = "Monte Carlo Performance"):
-        ax, fig = plt.subplots(figsize=(30, 15))
-        x = np.arange(1, len(self.env.rewards) + 1)
-        plt.plot(x * 10, self.env.rewards, linewidth=0.5, color = '#8F719C')
-        plt.xlabel('Episode number', size = 24)
-        plt.ylabel('Reward', size = 24)
-        plt.title(plot_name, size = 36)
-        plt.xticks(size = 20)
-        plt.yticks(size = 20)
-        plt.savefig('RewardGraph' + str(len(self.env.rewards) * 10) + '.png')
-        plt.close()
-
     def saveTrackData(self):
         self.env.saveQvalues()
         self.env.saveCvalues()
         self.env.savePolicy()
         self.env.saveRewards()
+
+    def plotRewards(self, plot_name = "Monte Carlo Learning Curve"):
+        window_size = 10
+        smoothed_rewards = np.convolve(self.env.rewards, np.ones(window_size) / window_size, mode='valid')
+        fig, ax = plt.subplots(figsize=(30, 15))
+        x_smoothed = np.arange(window_size//2, len(smoothed_rewards) + window_size//2)
+        plt.plot(np.arange(len(self.env.rewards)), self.env.rewards, label='Rewards per Episode', linewidth=0.5, color='#8F719C')
+        plt.plot(x_smoothed, smoothed_rewards, label='Smoothed Rewards', color='orange')
+        plt.xlabel('Episode number', size=24)
+        plt.ylabel('Reward', size=24)
+        plt.title(plot_name, size=36)
+        plt.xticks(size=20)
+        plt.yticks(size=20)
+        plt.savefig('RewardLearningCurve' + str(len(self.env.rewards)) + '.png')
+        plt.close()
+
+
+    def plotQValueHeatmap(self, duration = 0, time_step = 0, episode = 0):
+        q_values_subset = self.env.Qvalues[:, duration, time_step, :]
+
+        plt.figure(figsize=(12, 6))
+        sns.heatmap(q_values_subset, cmap='viridis')
+        plt.xlabel('Actions')
+        plt.ylabel('Pitch')
+        plt.title('Q-Value Heatmap for duration {} at Time Step {}'.format(duration, time_step))
+        plt.savefig('QValue_Heatmap_episode_' + str(episode) + '_' + str(duration) + '_' + str(time_step) + '.png')
+        plt.close()
+
+    def plotPolicy(self, time_step = 0, episode = 0):
+        policy_subset = self.env.policy[:, :, time_step]
+        sns.heatmap(policy_subset, cmap='coolwarm')
+        plt.xlabel('Duration')
+        plt.ylabel('Pitch')
+        plt.title('Policy Visualization at Time Step {}'.format(time_step))
+        plt.savefig('Policy_Plot_' + str(episode) + '_' + str(time_step) + '.png')
+        plt.close()
+
+    def plotActionHistogram(self, episode = 0):
+        # Assuming self.env.episodes['Action'] contains a list of actions taken in each episode
+        all_actions = [action for episode in self.env.episodes['Action'] for action in episode]
+
+        plt.figure(figsize=(12, 6))
+        plt.hist(all_actions, bins=range(len(self.action_space)), edgecolor='black')
+        plt.xlabel('Actions')
+        plt.ylabel('Frequency')
+        plt.title('Action Distribution Across All Episodes')
+        plt.xticks(range(len(self.action_space))) # Adjust this based on your action space
+        plt.savefig('Action_Histogram_episode' + str(episode) + '.png')
+        plt.close()
+
+    def plotRewardComponentBreakdown(self, episode = 0):
+        plt.figure(figsize=(12,6))
+        components = ['Correct Note', 'Correct Timing', 'Correct Key']
+        values = [self.env.correct_note_reward, self.env.correct_timing_reward, self.env.correct_key_reward]
+        plt.bar(components, values, color=['blue', 'green', 'red'])
+        plt.xlabel('Reward Components')
+        plt.ylabel('Total Reward')
+        plt.title('Breakdown of Reward Components')
+        plt.savefig('Reward_Breakdown_episode' + str(episode) + '.png')
+        plt.close()

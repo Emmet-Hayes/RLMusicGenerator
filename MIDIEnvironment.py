@@ -8,6 +8,7 @@ class MIDIEnvironment:
     def __init__(self, sequence_states):
         self.loadStateSpace()
         self.sequence_states = sequence_states
+        self.loadScaleFromSequence()
         self.epsilon = EPSILON
         self.gamma = GAMMA
         self.alpha = ALPHA
@@ -18,6 +19,9 @@ class MIDIEnvironment:
         self.loadPolicy()
         self.loadRewards()
         self.episodes = dict({'State': [], 'Action': [], 'probs' : [], 'Reward' : [None]})
+        self.correct_note_reward = 0
+        self.correct_timing_reward = 0
+        self.correct_key_reward = 0
 
     def reset(self):
         self.episodes = dict({'State': [], 'Action': [], 'probs' : [], 'Reward' : [None]})
@@ -40,14 +44,20 @@ class MIDIEnvironment:
         if next_state[0] == 0: # if this is a resting beat
             reward = 0 # neutral reward
 
-        # if the next state is in the rewardable sequence (not strictly at the same instant), we rejoice
-        next_state_trimmed = next_state[0:2]
-        sequence_states_trimmed = self.sequence_states[0:2]
-        if next_state_trimmed in sequence_states_trimmed:
-            reward = 5
+        # reward handsomely for playing the right note
+        if next_state[0] in self.sequence_states[0]:
+            reward += 21
+            self.correct_note_reward += reward
 
-        if next_state in self.sequence_states:
-            reward = 20
+        # reward slightly for playing the right timing of a note in the sequence
+        if next_state[1] in self.sequence_states[1]:
+            reward += 6
+            self.correct_timing_reward += reward
+
+        # reward notes that may be in the wrong octave, but are in the right key (if there is one)
+        if (next_state[0] % 12) in self.key_sequence:
+            reward += 6
+            self.correct_key_reward += reward
 
         self.episodes['Reward'].append(reward)
         self.episodes['State'].append(next_state)
@@ -63,6 +73,12 @@ class MIDIEnvironment:
         next_state[2] = int(self.currentTime)
 
         return next_state
+
+    def loadScaleFromSequence(self):
+        self.key_sequence = []
+        for note in self.sequence_states:
+            self.key_sequence.append(note[0] % 12)
+        self.key_sequence = set(self.key_sequence)
 
     def loadStateSpace(self):
         self.state_space = []

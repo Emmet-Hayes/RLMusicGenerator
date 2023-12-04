@@ -80,19 +80,23 @@ for i in range(NUM_EPISODES):
     if (i + 1) % 1000 == 0:
         print("On Episode #" + str(i + 1))
 
-agent.saveTrackData()
-agent.plotRewards('Performance')
+    if (i + 1) % 100000 == 0 or i == 100:
+        agent.saveTrackData()
+        agent.plotRewards('Performance')
+        agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
+        agent.plotPolicy(time_step=40, episode=(i + 1))
+        agent.plotActionHistogram(episode=(i + 1))
+        agent.plotRewardComponentBreakdown(episode=(i + 1))
+        # now that the RL model is trained, we should track its state transitions and
+        # parse them back into a MIDI sequence.
+        final_states = agent.outputStatesFromTargetPolicyRun()
 
-# now that the RL model is trained, we should track its state transitions and
-# parse them back into a MIDI sequence.
-final_states = agent.outputStatesFromTargetPolicyRun()
+        midi = convertStatesToMidi(final_states)
 
-print("Final States: " + str(final_states))
+        final_outfile = 'final_output_' + str(i + 1) + '.mid'
+        midi.write(final_outfile)
 
-midi = convertStatesToMidi(final_states)
+        if not args.dont_play:
+            playMidiFile(final_outfile)
+        visualizePianoRoll(final_outfile, i)
 
-final_outfile = 'final_output.mid'
-midi.write(final_outfile)
-
-playMidiFile(final_outfile)
-visualizePianoRoll(final_outfile)
