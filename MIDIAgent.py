@@ -1,12 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import random
 
 from MIDIHyperparameters import PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
+from MIDIDQNAgent import DQNAgent
 
 
 class MIDIAgent:
     def __init__(self, env):
+        self.DQNagent = DQNAgent(PITCH_COUNT * DURATION_COUNT * (8 * CLIP_LENGTH), PITCH_COUNT * DURATION_COUNT)
         self.loadActionSpace()
         self.env = env
         for i in range(PITCH_COUNT):
@@ -28,14 +31,79 @@ class MIDIAgent:
         possible_actions = np.array(possible_actions)
         return possible_actions
 
+    def mapState1D(self, state):
+        pitch, duration, time_step = state
+        return pitch + (duration * PITCH_COUNT) + (time_step * PITCH_COUNT * DURATION_COUNT)
+
+    def mapStateOneHot(self, state):
+        pitch, duration, time_step = state
+        state_index =  pitch + (duration * PITCH_COUNT) + (time_step * PITCH_COUNT * DURATION_COUNT)
+        stateoh = np.zeros(self.DQNagent.state_size)
+        stateoh[state_index] = 1 # one-hot vector
+        return stateoh
+
+    def mapState3D(self, state):
+        index = state
+        time_step = index // (PITCH_COUNT * DURATION_COUNT)
+        index -= time_step * PITCH_COUNT * DURATION_COUNT
+        duration = index // PITCH_COUNT
+        pitch = index % PITCH_COUNT
+        return [pitch, duration, time_step]
+
+
     def mapAction1D(self, action):
         for i, x in enumerate(self.action_space):
             if list(action) == list(x):
                 return i
 
+    def mapAction2D(self, action):
+        return [action % PITCH_COUNT, action // PITCH_COUNT]
+
     def getAction(self, state, policy):
         return self.action_space[(policy(state, self.possible_actions()))]
 
+    def saveModel(self):
+        self.DQNagent.saveModel()
+
+    # Deep-Q-Network Policy Control
+    def dqnControl(self):
+        self.env.reset()  # reset the environment at the start of each episode
+        state3d = self.env.start()
+        done = False
+        batch_size = 32
+
+        while not done:
+            # print('state was ' + str(state3d))
+            state1d = self.mapState1D(state3d)
+            stateoh = self.mapStateOneHot(state3d)
+            # print('state is now: ' + str(stateoh))
+
+            action1d = self.DQNagent.act(state1d)  # select an action
+            done = False
+
+            # print('action was ' + str(action1d))
+            action2d = self.mapAction2D(action1d)
+            # print('action is now: ' + str(action2d))
+
+            reward, next_state3d, done = self.env.step(state3d, action2d)  # take the action in the environment
+
+            # print('next_state was ' + str(next_state3d))
+            next_state1d = self.mapState1D(next_state3d)
+            # print('state is now: ' + str(next_state1d))
+
+            # remember the previous state, action, reward, and next state
+            self.DQNagent.remember(state1d, action1d, reward, next_state1d, done)
+
+            state3d = next_state3d  # move to the next state
+
+            if done:
+                # the episode ends so break from the loop
+                break
+
+            if len(self.DQNagent.memory) > batch_size:
+                self.DQNagent.replay(batch_size)  # train the agent by replaying the experiences
+
+    # off-policy Monte Carlo Control
     def mcControl(self):
         self.env.reset()
         state = self.env.start()
@@ -67,7 +135,7 @@ class MIDIAgent:
 
             W /= self.env.episodes['probs'][t]
 
-    # off-policy Double-Q-learning control algorithm based on Sutton and Barto definition
+    # off-policy Double-Q-Learning Control
     def qControl(self):
         self.env.reset()
         state = self.env.start()
@@ -102,6 +170,8 @@ class MIDIAgent:
 
         # Update the alpha to encourage convergent behavior
         self.env.alpha *= 0.9999 # alpha decay factor
+
+    # add Policy Gradient methods
 
     def evaluateTargetPolicy(self):
         self.env.reset()

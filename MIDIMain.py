@@ -8,7 +8,7 @@ from MIDIEnvironment import MIDIEnvironment
 from MIDIAgent import MIDIAgent
 from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH, PLOT_FREQUENCY
 from MIDIUtility import visualizePianoRoll, initializeModel, generateMidiPerformance, playMidiFile, convertMidiToStates, convertStatesToMidi, generateScaleSequence
-
+from MIDIDQNAgent import DQNAgent
 
 # Argument parsing
 parser = argparse.ArgumentParser(description="Control behavior of the music generation agent.")
@@ -16,7 +16,9 @@ parser.add_argument("--zero-state", action="store_true", help="Reset saved MIDI 
 parser.add_argument("--dont-play", action="store_true", help="Skip playing the MIDI output")
 parser.add_argument("--scale", type=str, help="Accepts a type of scale as the target sequence (ionian, dorian, phrygian, lydian, mixolydian, aeolian, locrian")
 parser.add_argument("--key", type=str, help="Accepts a musical key for the target sequence to be in.")
-parser.add_argument("--q-learning", action="store_true", help="Uses q-learning instead of monte carlo")
+parser.add_argument("--q-learning", action="store_true", help="Uses q-learning instead of DQN")
+parser.add_argument("--monte-carlo", action="store_true", help="Uses monte carlo instead of DQN")
+parser.add_argument("--human-feedback", action="store_true", help="Asks for human feedback based on the authenticity of the performance")
 args = parser.parse_args()
 
 pygame.mixer.init()
@@ -43,9 +45,11 @@ if args.zero_state:
 else:
     sequence = midi_io.midi_file_to_note_sequence(outfile)
 
+
 if not args.dont_play:
     playMidiFile(outfile)
 visualizePianoRoll(outfile, 'Performance (baseline)')
+
 
 if not args.scale:
     sequence_states = convertMidiToStates(sequence)
@@ -70,13 +74,20 @@ if args.zero_state:
 agent = MIDIAgent(env)
 
 for i in range(NUM_EPISODES):
+
     if args.q_learning:
         agent.qControl()
-    else:
+    elif args.monte_carlo:
         agent.mcControl()
+    else:
+        agent.dqnControl()
+        if i > NUM_EPISODES // 10:
+            break
 
     if (i + 1) % 10 == 0:
+        print("On Episode #" + str(i + 1))
         agent.evaluateTargetPolicy()
+
 
     if (i + 1) % 1000 == 0:
         print("On Episode #" + str(i + 1))
@@ -84,12 +95,28 @@ for i in range(NUM_EPISODES):
     if (i + 1) % 10000 == 0:
         agent.saveTrackData()
 
+    if args.human_feedback and (i + 1) % PLOT_FREQUENCY * 3 == 0:
+        print("What would you rate the creativity of the song? (1-10) ")
+        rating = input()
+        agent.env.correct_key_reward_hf_mod = 5 - int(rating)
+
+        print("What would you rate the naturalness of the song? (1-10) ")
+        rating = input()
+        agent.env.correct_timing_reward_hf_mod = 5 - int(rating)
+
+        print("What would you rate the authenticity of the song? (1-10) ")
+        rating = input()
+        agent.env.correct_note_reward_hf_mod = 5 - int(rating)
+
     if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
-        agent.plotRewards('Performance')
-        agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
-        agent.plotPolicy(time_step=40, episode=(i + 1))
-        agent.plotActionHistogram(episode=(i + 1))
-        agent.plotRewardComponentBreakdown(episode=(i + 1))
+        if args.q_learning or args.monte_carlo:
+            agent.plotRewards('Performance')
+            agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
+            agent.plotPolicy(time_step=40, episode=(i + 1))
+            agent.plotActionHistogram(episode=(i + 1))
+            agent.plotRewardComponentBreakdown(episode=(i + 1))
+        else:
+            agent.saveModel()
         # now that the RL model is trained, we should track its state transitions and
         # parse them back into a MIDI sequence.
         final_states = agent.outputStatesFromTargetPolicyRun()
@@ -132,8 +159,8 @@ qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
 rb_images = [imageio.imread(filename) for filename in rb_filenames]
 
 
-imageio.mimsave('ah_movie.gif', ah_images, duration = 0.25)
-imageio.mimsave('fop_movie.gif', fop_images, duration = 0.25)
-imageio.mimsave('pp_movie.gif', pp_images, duration = 0.25)
-imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.25)
-imageio.mimsave('rb_movie.gif', rb_images, duration = 0.25)
+imageio.mimsave('ah_movie.gif', ah_images, duration = 0.2)
+imageio.mimsave('fop_movie.gif', fop_images, duration = 0.2)
+imageio.mimsave('pp_movie.gif', pp_images, duration = 0.2)
+imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.2)
+imageio.mimsave('rb_movie.gif', rb_images, duration = 0.2)

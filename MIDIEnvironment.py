@@ -19,8 +19,11 @@ class MIDIEnvironment:
         self.loadPolicy()
         self.loadRewards()
         self.episodes = dict({'State': [], 'Action': [], 'probs' : [], 'Reward' : [None]})
+        self.correct_note_reward_hf_mod = 0
         self.correct_note_reward = 0
+        self.correct_timing_reward_hf_mod = 0
         self.correct_timing_reward = 0
+        self.correct_key_reward_hf_mod = 0
         self.correct_key_reward = 0
 
     def reset(self):
@@ -41,25 +44,20 @@ class MIDIEnvironment:
             reward = 1
             return reward, next_state, True
 
-        if next_state[0] == 0: # if this is a resting beat
-            reward = 0 # neutral reward
-
         # reward handsomely for playing the right note
         if next_state[0] in self.sequence_states[0]:
             reward += 51
-            self.correct_note_reward += reward
+            self.correct_note_reward += reward + self.correct_note_reward_hf_mod
 
         # reward notes that may be in the wrong octave, but are in the right key (if there is one)
         if (next_state[0] % 12) in self.key_sequence:
             reward += 2
-            self.correct_key_reward += reward
+            self.correct_key_reward += reward + self.correct_timing_reward_hf_mod
 
         # reward well for playing the right timing of a note in the sequence
         if next_state[1] in self.sequence_states[1]:
-            reward += 21
-            self.correct_timing_reward += reward
-
-
+            reward += 41
+            self.correct_timing_reward += reward + self.correct_timing_reward_hf_mod
 
         self.episodes['Reward'].append(reward)
         self.episodes['State'].append(next_state)
@@ -68,7 +66,7 @@ class MIDIEnvironment:
         return reward, next_state, False
 
     def getNextState(self, state, action):
-        next_state = state.copy()
+        next_state = [-1, -1, -1]
         next_state[0] = action[0] # pitch
         next_state[1] = action[1] # duration
         self.currentTime += action[1] + 1 # add it to the timer
