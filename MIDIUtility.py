@@ -21,6 +21,10 @@ def visualizePianoRoll(outfile, title_label):
     low_note = 50
     for instrument in midi_data.instruments:
         for note in instrument.notes:
+            # Skip notes with pitch 0 (they are treated as rests)
+            if note.pitch == 0:
+                continue
+
             # Note start, note pitch, note duration, note velocity
             start = note.start
             pitch = note.pitch
@@ -145,6 +149,11 @@ def getKeyModifier(key='A'):
 
 
 def getScaleDegrees(scale='ionian'):
+    if scale == 'major':
+        scale = 'ionian'
+    elif scale == 'minor':
+        scale = 'aeolian'
+
     modeMap = { 'ionian'     : [0, 2, 4, 5, 7, 9, 11],
                 'dorian'     : [0, 2, 3, 5, 7, 9, 10],
                 'phrygian'   : [0, 1, 3, 5, 7, 8, 10],

@@ -8,16 +8,14 @@ from MIDIEnvironment import MIDIEnvironment
 from MIDIAgent import MIDIAgent
 from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH, PLOT_FREQUENCY
 from MIDIUtility import visualizePianoRoll, initializeModel, generateMidiPerformance, playMidiFile, convertMidiToStates, convertStatesToMidi, generateScaleSequence
-from MIDIDQNAgent import DQNAgent
 
 # Argument parsing
 parser = argparse.ArgumentParser(description="Control behavior of the music generation agent.")
 parser.add_argument("--zero-state", action="store_true", help="Reset saved MIDI state.")
 parser.add_argument("--dont-play", action="store_true", help="Skip playing the MIDI output")
-parser.add_argument("--scale", type=str, help="Accepts a type of scale as the target sequence (ionian, dorian, phrygian, lydian, mixolydian, aeolian, locrian")
+parser.add_argument("--scale", type=str, help="Accepts a type of scale as the target sequence (ionian, dorian, phrygian, lydian, mixolydian, aeolian, locrian)")
 parser.add_argument("--key", type=str, help="Accepts a musical key for the target sequence to be in.")
-parser.add_argument("--q-learning", action="store_true", help="Uses q-learning instead of DQN")
-parser.add_argument("--monte-carlo", action="store_true", help="Uses monte carlo instead of DQN")
+parser.add_argument("--n-step-TD", action="store_true", help="Uses n-step TD instead of monte carlo")
 parser.add_argument("--human-feedback", action="store_true", help="Asks for human feedback based on the authenticity of the performance")
 args = parser.parse_args()
 
@@ -25,6 +23,9 @@ pygame.mixer.init()
 
 # model, input_sequence, generator_options = initializeModel('attention_rnn')
 outfile = 'melody_1.mid'
+
+scale = None
+key = None
 
 if args.zero_state:
     if args.scale or args.key:
@@ -57,7 +58,7 @@ if not args.scale:
 
 # this way, our state space IS almost essentially the same as our action space.
 # only the environment will be aware of how much time has passed.
-env = MIDIEnvironment(sequence_states)
+env = MIDIEnvironment(sequence_states, scale, key)
 
 # zero the state from previous runs
 if args.zero_state:
@@ -74,20 +75,13 @@ if args.zero_state:
 agent = MIDIAgent(env)
 
 for i in range(NUM_EPISODES):
-
-    if args.q_learning:
-        agent.qControl()
-    elif args.monte_carlo:
-        agent.mcControl()
+    if args.n_step_TD:
+        agent.nStepTDControl()
     else:
-        agent.dqnControl()
-        if i > NUM_EPISODES // 10:
-            break
+        agent.mcControl()
 
     if (i + 1) % 10 == 0:
-        print("On Episode #" + str(i + 1))
         agent.evaluateTargetPolicy()
-
 
     if (i + 1) % 1000 == 0:
         print("On Episode #" + str(i + 1))
@@ -109,14 +103,12 @@ for i in range(NUM_EPISODES):
         agent.env.correct_note_reward_hf_mod = 5 - int(rating)
 
     if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
-        if args.q_learning or args.monte_carlo:
-            agent.plotRewards('Performance')
-            agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
-            agent.plotPolicy(time_step=40, episode=(i + 1))
-            agent.plotActionHistogram(episode=(i + 1))
-            agent.plotRewardComponentBreakdown(episode=(i + 1))
-        else:
-            agent.saveModel()
+        agent.plotRewards('Performance')
+        agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
+        agent.plotPolicy(time_step=40, episode=(i + 1))
+        agent.plotActionHistogram(episode=(i + 1))
+        agent.plotRewardComponentBreakdown(episode=(i + 1))
+
         # now that the RL model is trained, we should track its state transitions and
         # parse them back into a MIDI sequence.
         final_states = agent.outputStatesFromTargetPolicyRun()
@@ -137,6 +129,7 @@ fop_filenames = [] # Final Output Plots
 pp_filenames = [] # Policy Plots
 qvh_filenames = [] # Q-value Heatmaps
 rb_filenames = [] # Reward Breakdown
+rlc_filenames = [] # Reward Learning Curve
 
 for i in range(NUM_EPISODES // PLOT_FREQUENCY):
     if i == 0:
@@ -145,18 +138,21 @@ for i in range(NUM_EPISODES // PLOT_FREQUENCY):
         pp_filenames.append('Policy_Plot_100_40.png')
         qvh_filenames.append('QValue_Heatmap_episode_100_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode100.png')
+        rlc_filenames.append('RewardLearningCurve100.png')
     else:
         ah_filenames.append('Action_Histogram_episode' + str(i * PLOT_FREQUENCY) + '.png')
         fop_filenames.append('final_output_' + str(i * PLOT_FREQUENCY) + '_plot.png')
         pp_filenames.append('Policy_Plot_' + str(i * PLOT_FREQUENCY) + '_40.png')
         qvh_filenames.append('QValue_Heatmap_episode_' + str(i * PLOT_FREQUENCY) + '_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode' + str(i * PLOT_FREQUENCY) + '.png')
+        rlc_filenames.append('RewardLearningCurve' + str(i * PLOT_FREQUENCY) + '.png')
 
 ah_images = [imageio.imread(filename) for filename in ah_filenames]
 fop_images = [imageio.imread(filename) for filename in fop_filenames]
 pp_images = [imageio.imread(filename) for filename in pp_filenames]
 qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
 rb_images = [imageio.imread(filename) for filename in rb_filenames]
+rlc_images = [imageio.imread(filename) for filename in rlc_filenames]
 
 
 imageio.mimsave('ah_movie.gif', ah_images, duration = 0.2)
@@ -164,3 +160,4 @@ imageio.mimsave('fop_movie.gif', fop_images, duration = 0.2)
 imageio.mimsave('pp_movie.gif', pp_images, duration = 0.2)
 imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.2)
 imageio.mimsave('rb_movie.gif', rb_images, duration = 0.2)
+imageio.mimsave('rlc_move.gif', rlc_images, duration = 0.2)
