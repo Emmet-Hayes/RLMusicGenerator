@@ -6,8 +6,8 @@ from magenta.music import midi_io
 
 from MIDIEnvironment import MIDIEnvironment
 from MIDIAgent import MIDIAgent
-from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH, PLOT_FREQUENCY
-from MIDIUtility import visualizePianoRoll, initializeModel, generateMidiPerformance, playMidiFile, convertMidiToStates, convertStatesToMidi, generateScaleSequence
+from MIDIHyperparameters import NUM_EPISODES, PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, CLIP_LENGTH, PLOT_FREQUENCY
+from MIDIUtility import visualizePianoRoll, initializeModel, generateMidiPerformance, playMidiFile, convertMidiToStates, convertStatesToMidi, generateScaleSequence, generateChordProgressionPredefined, convertChordStatesToMidi
 
 # Argument parsing
 parser = argparse.ArgumentParser(description="Control behavior of the music generation agent.")
@@ -41,8 +41,9 @@ if args.zero_state:
         midi = convertStatesToMidi(sequence_states)
         midi.write(outfile)
     else:
-        model, input_sequence, generator_options = initializeModel()
-        sequence = generateMidiPerformance(model, input_sequence, generator_options, outfile)
+        sequence_states = generateChordProgressionPredefined()
+        midi = convertStatesToMidi(sequence_states)
+        midi.write(outfile)
 else:
     sequence = midi_io.midi_file_to_note_sequence(outfile)
 
@@ -52,8 +53,8 @@ if not args.dont_play:
 visualizePianoRoll(outfile, 'Performance (baseline)')
 
 
-if not args.scale:
-    sequence_states = convertMidiToStates(sequence)
+#if not args.scale:
+#    sequence_states = convertMidiToStates(sequence)
 
 
 # this way, our state space IS almost essentially the same as our action space.
@@ -62,10 +63,10 @@ env = MIDIEnvironment(sequence_states, scale, key)
 
 # zero the state from previous runs
 if args.zero_state:
-    env.Qvalues = np.random.rand(PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT) * 400 - 500
+    env.Qvalues = np.random.rand(PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * CHORD_TYPE_COUNT * DURATION_COUNT) * 400 - 500
     env.rewards = []
-    env.Cvalues = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, 37*8))
-    env.policy = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH), dtype = 'int')
+    env.Cvalues = np.zeros((PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * CHORD_TYPE_COUNT * DURATION_COUNT))
+    env.policy = np.zeros((PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, PITCH_COUNT * CHORD_TYPE_COUNT * DURATION_COUNT * CLIP_LENGTH), dtype = 'int')
 
     env.saveQvalues()
     env.saveCvalues()
@@ -75,10 +76,7 @@ if args.zero_state:
 agent = MIDIAgent(env)
 
 for i in range(NUM_EPISODES):
-    if args.n_step_TD:
-        agent.nStepTDControl()
-    else:
-        agent.mcControl()
+    agent.mcControl()
 
     if (i + 1) % 10 == 0:
         agent.evaluateTargetPolicy()
@@ -104,8 +102,8 @@ for i in range(NUM_EPISODES):
 
     if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
         agent.plotRewards('Performance')
-        agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
-        agent.plotPolicy(time_step=40, episode=(i + 1))
+        #agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
+        #agent.plotPolicy(time_step=40, episode=(i + 1))
         agent.plotActionHistogram(episode=(i + 1))
         agent.plotRewardComponentBreakdown(episode=(i + 1))
 
@@ -113,7 +111,7 @@ for i in range(NUM_EPISODES):
         # parse them back into a MIDI sequence.
         final_states = agent.outputStatesFromTargetPolicyRun()
 
-        midi = convertStatesToMidi(final_states)
+        midi = convertChordStatesToMidi(final_states)
 
         final_outfile = 'final_output_' + str(i + 1) + '.mid'
         midi.write(final_outfile)
@@ -126,8 +124,8 @@ for i in range(NUM_EPISODES):
 # Generate images and videos showing model progress
 ah_filenames = [] # Action Histograms
 fop_filenames = [] # Final Output Plots
-pp_filenames = [] # Policy Plots
-qvh_filenames = [] # Q-value Heatmaps
+#pp_filenames = [] # Policy Plots
+#qvh_filenames = [] # Q-value Heatmaps
 rb_filenames = [] # Reward Breakdown
 rlc_filenames = [] # Reward Learning Curve
 
@@ -135,29 +133,29 @@ for i in range(NUM_EPISODES // PLOT_FREQUENCY):
     if i == 0:
         ah_filenames.append('Action_Histogram_episode100.png')
         fop_filenames.append('final_output_100_plot.png')
-        pp_filenames.append('Policy_Plot_100_40.png')
-        qvh_filenames.append('QValue_Heatmap_episode_100_0_40.png')
+        #pp_filenames.append('Policy_Plot_100_40.png')
+        #qvh_filenames.append('QValue_Heatmap_episode_100_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode100.png')
         rlc_filenames.append('RewardLearningCurve100.png')
     else:
         ah_filenames.append('Action_Histogram_episode' + str(i * PLOT_FREQUENCY) + '.png')
         fop_filenames.append('final_output_' + str(i * PLOT_FREQUENCY) + '_plot.png')
-        pp_filenames.append('Policy_Plot_' + str(i * PLOT_FREQUENCY) + '_40.png')
-        qvh_filenames.append('QValue_Heatmap_episode_' + str(i * PLOT_FREQUENCY) + '_0_40.png')
+        #pp_filenames.append('Policy_Plot_' + str(i * PLOT_FREQUENCY) + '_40.png')
+        #qvh_filenames.append('QValue_Heatmap_episode_' + str(i * PLOT_FREQUENCY) + '_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode' + str(i * PLOT_FREQUENCY) + '.png')
         rlc_filenames.append('RewardLearningCurve' + str(i * PLOT_FREQUENCY) + '.png')
 
 ah_images = [imageio.imread(filename) for filename in ah_filenames]
 fop_images = [imageio.imread(filename) for filename in fop_filenames]
-pp_images = [imageio.imread(filename) for filename in pp_filenames]
-qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
+#pp_images = [imageio.imread(filename) for filename in pp_filenames]
+#qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
 rb_images = [imageio.imread(filename) for filename in rb_filenames]
 rlc_images = [imageio.imread(filename) for filename in rlc_filenames]
 
 
 imageio.mimsave('ah_movie.gif', ah_images, duration = 0.2)
 imageio.mimsave('fop_movie.gif', fop_images, duration = 0.2)
-imageio.mimsave('pp_movie.gif', pp_images, duration = 0.2)
-imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.2)
+#imageio.mimsave('pp_movie.gif', pp_images, duration = 0.2)
+#imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.2)
 imageio.mimsave('rb_movie.gif', rb_images, duration = 0.2)
 imageio.mimsave('rlc_move.gif', rlc_images, duration = 0.2)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import pygame
 
-from MIDIHyperparameters import CLIP_LENGTH
+from MIDIHyperparameters import CHORD_TYPE_COUNT, CLIP_LENGTH
 
 
 def visualizePianoRoll(outfile, title_label):
@@ -180,3 +180,78 @@ def generateScaleSequence(key='A', scale='ionian'):
 
     return state_sequence
 
+# just moving up the ionian scale playing long chords
+def generateChordProgressionPredefined():
+    state_sequence = []
+
+    state_sequence.append([1,  7,  1])
+    state_sequence.append([5,  7,  1])
+    state_sequence.append([8,  7,  1])
+    state_sequence.append([3,  7,  9])
+    state_sequence.append([6,  7,  9])
+    state_sequence.append([10, 7,  9])
+    state_sequence.append([5,  7, 17])
+    state_sequence.append([8,  7, 17])
+    state_sequence.append([12, 7, 17])
+    state_sequence.append([6,  7, 25])
+    state_sequence.append([10, 7, 25])
+    state_sequence.append([13, 7, 25])
+    state_sequence.append([8,  7, 33])
+    state_sequence.append([12, 7, 33])
+    state_sequence.append([15, 7, 33])
+    state_sequence.append([10, 7, 41])
+    state_sequence.append([13, 7, 41])
+    state_sequence.append([17, 7, 41])
+    state_sequence.append([12, 7, 49])
+    state_sequence.append([15, 7, 49])
+    state_sequence.append([18, 7, 49])
+    state_sequence.append([13, 7, 57])
+    state_sequence.append([17, 7, 57])
+    state_sequence.append([20, 7, 57])
+
+    return state_sequence
+
+def getChordModifiersByChordType(chordType):
+    if chordType == 0: # major
+        return [0, 4, 7]
+    elif chordType == 1: # minor
+        return [0, 3, 7]
+    elif chordType == 2: # aug
+        return [0, 4, 8]
+    elif chordType == 3: # dim
+        return [0, 3, 6]
+    elif chordType == 4: # major7
+        return [0, 4, 7, 11]
+    elif chordType == 5: # minor7
+        return [0, 3, 7, 10]
+    elif chordType == 6: # dom7
+        return [0, 4, 7, 10]
+    return [0, 3, 6, 9] # dim7
+
+def convertChordStatesToMidi(state_sequence):
+    midi = pretty_midi.PrettyMIDI()
+
+    piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
+    piano = pretty_midi.Instrument(program=piano_program)
+
+    for i, state in enumerate(state_sequence):
+            pitch = state[0]
+            pitch += 48
+            duration = (state[2] + 1) * 0.125
+            start = state[3] / 8
+            end = start + duration
+
+            # Voice the full chord based on the enumerated type
+            chordMods = getChordModifiersByChordType(state[1])
+
+            for chordMod in chordMods:
+                note = pretty_midi.Note(
+                    velocity=100,
+                    pitch=pitch + chordMod,
+                    start=start,
+                    end=end
+                )
+                piano.notes.append(note)
+
+    midi.instruments.append(piano)
+    return midi

@@ -1,8 +1,8 @@
 import numpy as np
 import os
 
-from MIDIHyperparameters import EPSILON, GAMMA, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
-from MIDIUtility import getKeyModifier, getScaleDegrees
+from MIDIHyperparameters import EPSILON, GAMMA, PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, CLIP_LENGTH
+from MIDIUtility import getKeyModifier, getScaleDegrees, getChordModifiersByChordType
 
 
 class MIDIEnvironment:
@@ -31,14 +31,16 @@ class MIDIEnvironment:
         self.correct_timing_reward = 0
         self.correct_key_reward_hf_mod = 0
         self.correct_key_reward = 0
+        self.chord_history = []
 
     def reset(self):
         self.episodes = dict({'State': [], 'Action': [], 'probs' : [], 'Reward' : [None]})
         self.currentTime = 0.0
         self.stepsTaken = 0
+        self.chord_history = []
 
     def start(self):
-        state = [0, 0, 0]
+        state = [0, 0, 0, 0]
         return state
 
     def step(self, state, action):
@@ -46,7 +48,7 @@ class MIDIEnvironment:
 
         next_state =  self.getNextState(state, action)
 
-        if next_state[2] >= 8 * CLIP_LENGTH: # if were now at the end of the clip
+        if next_state[3] >= 8 * CLIP_LENGTH: # if were now at the end of the clip
             reward = 1
             return reward, next_state, True
 
@@ -59,11 +61,12 @@ class MIDIEnvironment:
         return reward, next_state, False
 
     def getNextState(self, state, action):
-        next_state = [-1, -1, -1]
+        next_state = [-1, -1, -1, -1]
         next_state[0] = action[0] # pitch
-        next_state[1] = action[1] # duration
-        self.currentTime += action[1] + 1 # add it to the timer
-        next_state[2] = int(self.currentTime)
+        next_state[1] = action[1] # chord type
+        next_state[2] = action[2] # duration
+        self.currentTime += action[2] + 1 # add it to the timer
+        next_state[3] = int(self.currentTime)
 
         return next_state
 
@@ -75,32 +78,40 @@ class MIDIEnvironment:
 
             keyModifier = getKeyModifier(self.key)
             scaleDegrees = getScaleDegrees(self.scale)
+            chordMods = getChordModifiersByChordType(next_state[1])
 
-            if next_state[0] % 12 == (scaleDegrees[0] + keyModifier + 1) % 12:
-                reward += 15 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[1] + keyModifier + 1) % 12:
-                reward += 3 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[2] + keyModifier + 1) % 12:
-                reward += 10 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[3] + keyModifier + 1) % 12:
-                reward += 7 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[4] + keyModifier + 1) % 12:
-                reward += 12 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[5] + keyModifier + 1) % 12:
-                reward += 7 + self.correct_key_reward_hf_mod
-            elif next_state[0] % 12 == (scaleDegrees[5] + keyModifier + 1) % 12:
-                reward += 1 + self.correct_key_reward_hf_mod
-            self.correct_key_reward += reward
+            for chordMod in chordMods:
+                if next_state[0] + chordMod % 12 == (scaleDegrees[0] + keyModifier + 1) % 12:
+                    reward += 15 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[1] + keyModifier + 1) % 12:
+                    reward += 3 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[2] + keyModifier + 1) % 12:
+                    reward += 10 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[3] + keyModifier + 1) % 12:
+                    reward += 7 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[4] + keyModifier + 1) % 12:
+                    reward += 12 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[5] + keyModifier + 1) % 12:
+                    reward += 7 + self.correct_key_reward_hf_mod
+                elif next_state[0] + chordMod % 12 == (scaleDegrees[5] + keyModifier + 1) % 12:
+                    reward += 1 + self.correct_key_reward_hf_mod
+                self.correct_key_reward += reward
         else:
             # else reward notes that may be in the wrong octave, but are in the right key (if there is one)
-            if (next_state[0] % 12) in self.key_sequence:
-                reward += 6 + self.correct_key_reward_hf_mod
-                self.correct_key_reward += reward
+            chordMods = getChordModifiersByChordType(next_state[1])
 
-        # reward handsomely for playing the note as it appears in the sequence exactly
-        if next_state in self.sequence_states:
-            reward += 101 + (3 * self.correct_note_reward_hf_mod)
-            self.correct_note_reward += reward
+            for chordMod in chordMods:
+                if (next_state[0] + chordMod % 12) in self.key_sequence:
+                    # reward decay for chord and starting note repetition
+                    current_chord = (next_state[0], next_state[1])
+                    repeat_count = self.chord_history.count(current_chord)
+                    if repeat_count > 0:
+                        decay_factor = 0.5 ** repeat_count
+                        chord_repeat_reward = 6 * decay_factor
+                        reward += chord_repeat_reward
+                    else:
+                        reward += 6 + self.correct_key_reward_hf_mod
+                    self.correct_key_reward += reward
 
         # reward well for playing the right timing of a note in the sequence
         if next_state[1] in self.sequence_states[1]:
@@ -120,7 +131,7 @@ class MIDIEnvironment:
         self.state_space = []
         for i in range(PITCH_COUNT):
             for j in range(DURATION_COUNT):
-                for k in range(8 * CLIP_LENGTH):
+                for k in range(DURATION_COUNT * CLIP_LENGTH):
                     self.state_space.append([i, j, k])
 
     def saveRewards(self, filename = 'Rewards.npy'):
@@ -139,7 +150,7 @@ class MIDIEnvironment:
 
     def loadPolicy(self):
         if not os.path.exists('Policy.npy'):
-            self.policy = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH), dtype = 'int')
+            self.policy = np.zeros((PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH), dtype = 'int')
         else:
             self.policy = np.load('Policy.npy')
 
@@ -148,20 +159,15 @@ class MIDIEnvironment:
 
     def loadCvalues(self):
         if not os.path.exists('Cvalues.npy'):
-            self.Cvalues = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT))
+            self.Cvalues = np.zeros((PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * CHORD_TYPE_COUNT * DURATION_COUNT))
         else:
             self.Cvalues = np.load('Cvalues.npy')
 
     def saveQvalues(self, filename = 'Qvalues.npy'):
         np.save(filename, self.Qvalues)
-        np.save(filename, self.Qvalues2)
 
     def loadQvalues(self):
         if not os.path.exists('Qvalues.npy'):
-            self.Qvalues = np.random.rand(PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT) * 400 - 500
+            self.Qvalues = np.random.rand(PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * CHORD_TYPE_COUNT * DURATION_COUNT) * 400 - 500
         else:
             self.Qvalues = np.load('Qvalues.npy')
-        if not os.path.exists('Qvalues2.npy'):
-            self.Qvalues2 = np.random.rand(PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT) * 400 - 500
-        else:
-            self.Qvalues2 = np.load('Qvalues2.npy')

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import random
 
-from MIDIHyperparameters import PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
+from MIDIHyperparameters import PITCH_COUNT, CHORD_TYPE_COUNT, DURATION_COUNT, CLIP_LENGTH
 
 
 class MIDIAgent:
@@ -15,15 +15,17 @@ class MIDIAgent:
         self.action_buffer = []
         self.reward_buffer = []
         for i in range(PITCH_COUNT):
-            for j in range(DURATION_COUNT): # any time in 10 s subdivided by 0.125 sec increments
-                for k in range(CLIP_LENGTH * 8): # 8th, qtr, half, whole
-                    self.env.policy[i, j, k] = np.argmax(self.env.Qvalues[i, j, k])
+            for j in range(CHORD_TYPE_COUNT):
+                for k in range(DURATION_COUNT): # any time in 10 s subdivided by 0.125 sec increments
+                    for l in range(CLIP_LENGTH * 8): # 8th, qtr, half, whole
+                        self.env.policy[i, j, k, l] = np.argmax(self.env.Qvalues[i, j, k, l])
 
     def loadActionSpace(self):
         self.action_space = []
         for i in range(PITCH_COUNT):
-            for j in range(DURATION_COUNT):
-                self.action_space.append([i, j])
+            for j in range(CHORD_TYPE_COUNT):
+                for k in range(DURATION_COUNT):
+                    self.action_space.append([i, j, k])
 
     def possible_actions(self):
         possible_actions = []
