@@ -15,7 +15,6 @@ parser.add_argument("--zero-state", action="store_true", help="Reset saved MIDI 
 parser.add_argument("--dont-play", action="store_true", help="Skip playing the MIDI output")
 parser.add_argument("--scale", type=str, help="Accepts a type of scale as the target sequence (ionian, dorian, phrygian, lydian, mixolydian, aeolian, locrian)")
 parser.add_argument("--key", type=str, help="Accepts a musical key for the target sequence to be in.")
-parser.add_argument("--n-step-TD", action="store_true", help="Uses n-step TD instead of monte carlo")
 parser.add_argument("--human-feedback", action="store_true", help="Asks for human feedback based on the authenticity of the performance")
 args = parser.parse_args()
 
