@@ -4,7 +4,7 @@ import os
 from MIDIHyperparameters import EPSILON, GAMMA, PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
 from MIDIUtility import getKeyModifier, getScaleDegrees
 
-
+# environment composed of reduced dimensions corresponding to MIDI data
 class MIDIEnvironment:
     def __init__(self, sequence_states, scale, key):
         self.loadStateSpace()
@@ -108,7 +108,6 @@ class MIDIEnvironment:
             self.correct_timing_reward += reward
 
         return reward
-
 
     def loadScaleFromSequence(self):
         self.key_sequence = []

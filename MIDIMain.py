@@ -20,13 +20,12 @@ args = parser.parse_args()
 
 pygame.mixer.init()
 
-# model, input_sequence, generator_options = initializeModel('attention_rnn')
 outfile = 'melody_1.mid'
-
 scale = None
 key = None
 
 if args.zero_state:
+    # create a scale sequence based on passed arguments
     if args.scale or args.key:
         scale = 'ionian'
         if args.scale:
@@ -39,6 +38,8 @@ if args.zero_state:
         sequence_states = generateScaleSequence(key, scale)
         midi = convertStatesToMidi(sequence_states)
         midi.write(outfile)
+
+    # else create a unique sequence with the pre-trainedd magenta model
     else:
         model, input_sequence, generator_options = initializeModel()
         sequence = generateMidiPerformance(model, input_sequence, generator_options, outfile)
@@ -50,10 +51,8 @@ if not args.dont_play:
     playMidiFile(outfile)
 visualizePianoRoll(outfile, 'Performance (baseline)')
 
-
 if not args.scale:
     sequence_states = convertMidiToStates(sequence)
-
 
 # this way, our state space IS almost essentially the same as our action space.
 # only the environment will be aware of how much time has passed.
@@ -61,10 +60,10 @@ env = MIDIEnvironment(sequence_states, scale, key)
 
 # zero the state from previous runs
 if args.zero_state:
-    env.Qvalues = np.random.rand(PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT) * 400 - 500
+    env.Qvalues = np.random.rand(PITCH_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT) * 400 - 500
     env.rewards = []
-    env.Cvalues = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH, 37*8))
-    env.policy = np.zeros((PITCH_COUNT, DURATION_COUNT, 8 * CLIP_LENGTH), dtype = 'int')
+    env.Cvalues = np.zeros((PITCH_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH, PITCH_COUNT * DURATION_COUNT))
+    env.policy = np.zeros((PITCH_COUNT, DURATION_COUNT, DURATION_COUNT * CLIP_LENGTH), dtype = 'int')
 
     env.saveQvalues()
     env.saveCvalues()
@@ -73,11 +72,9 @@ if args.zero_state:
 
 agent = MIDIAgent(env)
 
+# training loop for the agent
 for i in range(NUM_EPISODES):
-    if args.n_step_TD:
-        agent.nStepTDControl()
-    else:
-        agent.mcControl()
+    agent.mcControl()
 
     if (i + 1) % 10 == 0:
         agent.evaluateTargetPolicy()
@@ -101,6 +98,7 @@ for i in range(NUM_EPISODES):
         rating = input()
         agent.env.correct_note_reward_hf_mod = 5 - int(rating)
 
+    # generate plots
     if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
         agent.plotRewards('Performance')
         agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
@@ -152,7 +150,6 @@ pp_images = [imageio.imread(filename) for filename in pp_filenames]
 qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
 rb_images = [imageio.imread(filename) for filename in rb_filenames]
 rlc_images = [imageio.imread(filename) for filename in rlc_filenames]
-
 
 imageio.mimsave('ah_movie.gif', ah_images, duration = 0.2)
 imageio.mimsave('fop_movie.gif', fop_images, duration = 0.2)

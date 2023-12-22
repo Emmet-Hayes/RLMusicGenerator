@@ -5,7 +5,7 @@ import random
 
 from MIDIHyperparameters import PITCH_COUNT, DURATION_COUNT, CLIP_LENGTH
 
-
+# agent that chooses next notes to play in the given midi environment
 class MIDIAgent:
     def __init__(self, env, n_step=3):
         self.loadActionSpace()
@@ -72,9 +72,6 @@ class MIDIAgent:
                 break
 
             W /= self.env.episodes['probs'][t]
-
-    # lets try a non-tabular method for generating polyphonic sequences
-    # since adding more pitch values would drastically increase the state space size
 
     def evaluateTargetPolicy(self):
         self.env.reset()
@@ -185,7 +182,6 @@ class MIDIAgent:
         plt.close()
 
     def plotActionHistogram(self, episode = 0):
-        # Assuming self.env.episodes['Action'] contains a list of actions taken in each episode
         all_actions = []
         for action in self.env.episodes['Action']:
             all_actions.append(self.mapAction1D(action))
