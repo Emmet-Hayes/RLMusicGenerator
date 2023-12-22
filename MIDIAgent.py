@@ -75,8 +75,7 @@ class MIDIAgent:
 
             W /= self.env.episodes['probs'][t]
 
-    # lets try a non-tabular method for generating polyphonic sequences
-    # since adding more pitch values would drastically increase the state space size
+    # lets try a non-tabular method for generating polyphonic sequences...
 
     def evaluateTargetPolicy(self):
         self.env.reset()

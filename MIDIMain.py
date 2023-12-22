@@ -21,9 +21,7 @@ args = parser.parse_args()
 
 pygame.mixer.init()
 
-# model, input_sequence, generator_options = initializeModel('attention_rnn')
 outfile = 'melody_1.mid'
-
 scale = None
 key = None
 
@@ -51,10 +49,6 @@ else:
 if not args.dont_play:
     playMidiFile(outfile)
 visualizePianoRoll(outfile, 'Performance (baseline)')
-
-
-#if not args.scale:
-#    sequence_states = convertMidiToStates(sequence)
 
 
 # this way, our state space IS almost essentially the same as our action space.
@@ -102,8 +96,6 @@ for i in range(NUM_EPISODES):
 
     if (i + 1) % PLOT_FREQUENCY == 0 or (i + 1) == 100:
         agent.plotRewards('Performance')
-        #agent.plotQValueHeatmap(time_step=40, episode=(i + 1))
-        #agent.plotPolicy(time_step=40, episode=(i + 1))
         agent.plotActionHistogram(episode=(i + 1))
         agent.plotRewardComponentBreakdown(episode=(i + 1))
 
@@ -124,8 +116,6 @@ for i in range(NUM_EPISODES):
 # Generate images and videos showing model progress
 ah_filenames = [] # Action Histograms
 fop_filenames = [] # Final Output Plots
-#pp_filenames = [] # Policy Plots
-#qvh_filenames = [] # Q-value Heatmaps
 rb_filenames = [] # Reward Breakdown
 rlc_filenames = [] # Reward Learning Curve
 
@@ -133,29 +123,21 @@ for i in range(NUM_EPISODES // PLOT_FREQUENCY):
     if i == 0:
         ah_filenames.append('Action_Histogram_episode100.png')
         fop_filenames.append('final_output_100_plot.png')
-        #pp_filenames.append('Policy_Plot_100_40.png')
-        #qvh_filenames.append('QValue_Heatmap_episode_100_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode100.png')
         rlc_filenames.append('RewardLearningCurve100.png')
     else:
         ah_filenames.append('Action_Histogram_episode' + str(i * PLOT_FREQUENCY) + '.png')
         fop_filenames.append('final_output_' + str(i * PLOT_FREQUENCY) + '_plot.png')
-        #pp_filenames.append('Policy_Plot_' + str(i * PLOT_FREQUENCY) + '_40.png')
-        #qvh_filenames.append('QValue_Heatmap_episode_' + str(i * PLOT_FREQUENCY) + '_0_40.png')
         rb_filenames.append('Reward_Breakdown_episode' + str(i * PLOT_FREQUENCY) + '.png')
         rlc_filenames.append('RewardLearningCurve' + str(i * PLOT_FREQUENCY) + '.png')
 
 ah_images = [imageio.imread(filename) for filename in ah_filenames]
 fop_images = [imageio.imread(filename) for filename in fop_filenames]
-#pp_images = [imageio.imread(filename) for filename in pp_filenames]
-#qvh_images = [imageio.imread(filename) for filename in qvh_filenames]
 rb_images = [imageio.imread(filename) for filename in rb_filenames]
 rlc_images = [imageio.imread(filename) for filename in rlc_filenames]
 
 
 imageio.mimsave('ah_movie.gif', ah_images, duration = 0.2)
 imageio.mimsave('fop_movie.gif', fop_images, duration = 0.2)
-#imageio.mimsave('pp_movie.gif', pp_images, duration = 0.2)
-#imageio.mimsave('qvh_movie.gif', qvh_images, duration = 0.2)
 imageio.mimsave('rb_movie.gif', rb_images, duration = 0.2)
 imageio.mimsave('rlc_move.gif', rlc_images, duration = 0.2)
